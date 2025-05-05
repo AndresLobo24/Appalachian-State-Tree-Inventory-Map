@@ -78,12 +78,6 @@ For data inquiries:
 
 ---
 
-## 📸 Preview Screenshot
-
-![Screenshot of the map](assets/screenshot.png)
-
----
-
 ## ✍️ Credits
 
 Developed by **Andres Lobo** for **GHY 4818-101 – Web Mapping** at **Appalachian State University**.
