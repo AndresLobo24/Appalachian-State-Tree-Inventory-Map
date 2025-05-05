@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ASU Campus Tree Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+    <!-- Font Awesome 6 CSS -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body { margin: 0; font-family: Arial, sans-serif; }
+
+        #header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background: rgba(1,1,1,0.8); /* App State black */
+            color: #FFCC00; /* App State Gold */
+            display: flex;
+            align-items: center;
+            justify-content: center; /* center title */
+            font-family: Arial, sans-serif;
+            font-size: 20px;
+            font-weight: bold;
+            z-index: 2000;
+        }
+
+        #logo {
+            position: absolute;
+            left: 10px;
+            height: 40px;
+        }
+
+        #container {
+            display: flex;
+            margin-top: 50px;
+            height: calc(100vh - 50px);
+        }
+
+        #sidebar {
+            width: 250px;
+            background: #d6d6d7;
+            padding: 10px;
+            border-right: 1px solid #b2b3b3;
+            overflow-y: auto;
+            max-height: 100%;
+            font-family: Arial, sans-serif;
+        }
+
+        h3 {
+            font-family: "Times New Roman", serif;
+            font-weight: bold;
+            margin-top: 1em;
+            color: #010101;
+        }
+
+        label {
+            display: flex;
+            align-items: flex-start; /* aligns checkbox at top */
+            gap: 5px;
+            margin-bottom: 5px;
+            font-family: Arial, sans-serif;
+        }
+
+        #map {
+            flex-grow: 1;
+            height: 100%;
+            position: relative;
+        }
+
+        #searchContainer {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            border: 1px solid #b2b3b3;
+            padding: 5px;
+            z-index: 1000;
+            width: 200px;
+            font-family: Arial, sans-serif;
+        }
+
+        #searchInput {
+            width: 100%;
+            padding: 4px;
+            box-sizing: border-box;
+        }
+
+        #searchResults {
+            max-height: 150px;
+            overflow-y: auto;
+            border: 1px solid #b2b3b3;
+            background: #fff;
+            display: none;
+            position: absolute;
+            width: 100%;
+            z-index: 1001;
+            font-family: Arial, sans-serif;
+        }
+
+        #searchResults div {
+            padding: 4px;
+            cursor: pointer;
+        }
+
+        #searchResults div:hover {
+            background: #d6d6d7;
+        }
+    </style>
+</head>
+<body>
+    <div id="header">
+        <img src="assets/asu-logo.png" alt="App State Logo" id="logo">
+        App State Tree Inventory
+    </div>
+
+    <div id="container">
+        <div id="sidebar">
+            <h3>Classification</h3>
+            <label><input type="radio" name="classificationFilter" value="" checked> Show All</label>
+            <label><input type="radio" name="classificationFilter" value="Deciduous"> Deciduous</label>
+            <label><input type="radio" name="classificationFilter" value="Evergreen"> Evergreen</label>
+            <label><input type="radio" name="classificationFilter" value="Deciduous Conifer"> Deciduous Conifer</label>
+            <label><input type="radio" name="classificationFilter" value="Evergreen or Deciduous"> Evergreen or Deciduous</label>
+            <label><input type="radio" name="classificationFilter" value="Deciduous to Semi-evergreen"> Deciduous to Semi-evergreen</label>
+            <label><input type="radio" name="classificationFilter" value="Semi-evergreen"> Semi-evergreen</label>
+            <label><input type="radio" name="classificationFilter" value="Evergreen Conifer"> Evergreen Conifer</label>
+
+            <h3>Cultivar</h3>
+            <label><input type="radio" name="cultivarFilter" value="" checked> Show All</label>
+            <label><input type="radio" name="cultivarFilter" value="Yes"> Yes</label>
+            <label><input type="radio" name="cultivarFilter" value="No"> No</label>
+
+            <h3>Hybrid/Pure</h3>
+            <label><input type="radio" name="hybridFilter" value="" checked> Show All</label>
+            <label><input type="radio" name="hybridFilter" value="Hybrid"> Hybrid</label>
+            <label><input type="radio" name="hybridFilter" value="Pure"> Pure</label>
+
+            <h3>Native to Boone, NC?</h3>
+            <label><input type="radio" name="nativeFilter" value="" checked> Show All</label>
+            <label><input type="radio" name="nativeFilter" value="Yes"> Yes</label>
+            <label><input type="radio" name="nativeFilter" value="No"> No</label>
+
+
+            
+            <button onclick="window.open('assets/about.html', '_blank')" 
+            style="width: 100%; padding: 10px; margin-top: 20px; background: #FFCC00; border: 1px solid #ccc; cursor: pointer;">
+            About This Map
+        </button>
+        
+        </div>
+
+        <div id="map">
+            <div id="searchContainer">
+                <input type="text" id="searchInput" placeholder="Search tree name...">
+                <div id="searchResults"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+    <script>
+        const map = L.map('map', { minZoom: 1, maxZoom: 22 }).setView([36.214, -81.674], 16);
+
+        L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/satellite-v9/tiles/{z}/{x}/{y}?access_token=pk.eyJ1IjoiYW5kcmVzbG9ibzI0IiwiYSI6ImNtOGc1YTMwdzBrMWwycXB4azhkaXYxbnQifQ.OIMSdUAwNhEQU0ROlu9Hgg', {
+    attribution: 'Imagery © Mapbox',
+    tileSize: 512,
+    zoomOffset: -1,
+    maxZoom: 22
+}).addTo(map);
+
+
+        const treeIcon = L.divIcon({
+            html: '<i class="fa-solid fa-tree" style="color: #0eb003; font-size: 20px;"></i>',
+            iconSize: [20, 20],
+            className: ''
+        });
+
+        L.Control.ZoomHome = L.Control.Zoom.extend({
+            onAdd: function(map) {
+                const container = L.Control.Zoom.prototype.onAdd.call(this, map);
+                const homeButton = L.DomUtil.create('a', 'leaflet-control-zoom-home leaflet-bar-part leaflet-bar');
+                homeButton.innerHTML = '<i class="fa-solid fa-house"></i>';
+                homeButton.href = '#';
+                homeButton.title = 'Reset View';
+                container.insertBefore(homeButton, container.children[1]);
+                L.DomEvent.on(homeButton, 'click', (e) => {
+                    L.DomEvent.preventDefault(e);
+                    if (window.treeBounds) {
+                        map.fitBounds(window.treeBounds, { padding: [50, 50] });
+                    } else {
+                        map.setView([36.214, -81.674], 16);
+                    }
+                });
+                return container;
+            }
+        });
+        map.removeControl(map.zoomControl);
+        map.addControl(new L.Control.ZoomHome());
+
+        let allMarkers = [];
+        let speciesNames = [];
+
+        fetch('assets/MyExportedTrees.geojson?v=' + Date.now())
+            .then(response => response.json())
+            .then(data => {
+                const coords = [];
+
+                data.features.forEach(feature => {
+                    const props = feature.properties;
+                    const lat = feature.properties.Y;
+                    const lng = feature.properties.X;
+
+                    if (lat && lng) {
+                        const marker = L.marker([lat, lng], { icon: treeIcon });
+
+                        const popupContent = `
+                            <table style="font-family: Arial, sans-serif; font-size: 12px;">
+                                <tr><td><b>Scientific Name:</b></td><td>${props.SPEC_1}</td></tr>
+                                <tr><td><b>Common Name:</b></td><td>${props.COM_NAM_1}</td></tr>
+                                <tr><td><b>Family:</b></td><td>${props.Family}</td></tr>
+                                <tr><td><b>Cultivar:</b></td><td>${props['Cultivar ?']}</td></tr>
+                                <tr><td><b>Classification:</b></td><td>${props.Classification}</td></tr>
+                                <tr><td><b>Latitude:</b></td><td>${lat}</td></tr>
+                                <tr><td><b>Longitude:</b></td><td>${lng}</td></tr>
+                                <tr><td><b>Native to Boone, NC?:</b></td><td>${props['Native to Boone, NC?']}</td></tr>
+                                <tr><td><b>Hybrid or Pure-bred:</b></td><td>${props['Hybrid or Pure-bred']}</td></tr>
+                                <tr><td><b>Native Region:</b></td><td>${props['Native Region']}</td></tr>
+                            </table>
+                        `;
+
+                        marker.bindPopup(popupContent);
+
+                        const cultivarMapped = (props['Cultivar ?'] && props['Cultivar ?'].toLowerCase() !== 'none') ? 'Yes' : 'No';
+                        const hybridMapped = (props['Hybrid or Pure-bred'] && props['Hybrid or Pure-bred'].toLowerCase() === 'hybrid') ? 'Hybrid' : 'Pure';
+                        const nativeMapped = (props['Native to Boone, NC?'] && props['Native to Boone, NC?'].toLowerCase() === 'yes') ? 'Yes' : 'No';
+
+                        allMarkers.push({
+                            marker: marker,
+                            classification: props.Classification,
+                            cultivar: cultivarMapped,
+                            hybrid: hybridMapped,
+                            native: nativeMapped,
+                            scientificName: props.SPEC_1,
+                            commonName: props.COM_NAM_1
+                        });
+
+                        speciesNames.push(props.SPEC_1);
+                        speciesNames.push(props.COM_NAM_1);
+
+                        marker.addTo(map);
+                        coords.push([lat, lng]);
+                    }
+                });
+
+                if (coords.length > 0) {
+                    const bounds = L.latLngBounds(coords);
+                    map.fitBounds(bounds, { padding: [50, 50] });
+                    window.treeBounds = bounds;
+                }
+            });
+
+        const classificationInputs = document.querySelectorAll('input[name="classificationFilter"]');
+        const cultivarInputs = document.querySelectorAll('input[name="cultivarFilter"]');
+        const hybridInputs = document.querySelectorAll('input[name="hybridFilter"]');
+        const nativeInputs = document.querySelectorAll('input[name="nativeFilter"]');
+
+        function applyFilters() {
+            const selectedClassification = document.querySelector('input[name="classificationFilter"]:checked').value;
+            const selectedCultivar = document.querySelector('input[name="cultivarFilter"]:checked').value;
+            const selectedHybrid = document.querySelector('input[name="hybridFilter"]:checked').value;
+            const selectedNative = document.querySelector('input[name="nativeFilter"]:checked').value;
+            const selectedSpecies = document.getElementById('searchInput').dataset.selectedSpecies || "";
+
+            allMarkers.forEach(obj => {
+                map.removeLayer(obj.marker);
+
+                const matchesClassification = (selectedClassification === "" || obj.classification === selectedClassification);
+                const matchesCultivar = (selectedCultivar === "" || obj.cultivar === selectedCultivar);
+                const matchesHybrid = (selectedHybrid === "" || obj.hybrid === selectedHybrid);
+                const matchesNative = (selectedNative === "" || obj.native === selectedNative);
+                const matchesSpecies = (selectedSpecies === "" || obj.scientificName === selectedSpecies || obj.commonName === selectedSpecies);
+
+                if (matchesClassification && matchesCultivar && matchesHybrid && matchesNative && matchesSpecies) {
+                    obj.marker.addTo(map);
+                }
+            });
+        }
+
+        classificationInputs.forEach(input => input.addEventListener('change', applyFilters));
+        cultivarInputs.forEach(input => input.addEventListener('change', applyFilters));
+        hybridInputs.forEach(input => input.addEventListener('change', applyFilters));
+        nativeInputs.forEach(input => input.addEventListener('change', applyFilters));
+
+        const searchInput = document.getElementById('searchInput');
+        const searchResults = document.getElementById('searchResults');
+
+        searchInput.addEventListener('input', function() {
+            const query = this.value.toLowerCase().trim();
+            searchResults.innerHTML = "";
+            if (query.length === 0) {
+                searchResults.style.display = "none";
+                this.dataset.selectedSpecies = "";
+                applyFilters();
+                return;
+            }
+
+            const matches = [...new Set(speciesNames)].filter(name => name && name.toLowerCase().includes(query));
+            matches.forEach(name => {
+                const div = document.createElement('div');
+                div.textContent = name;
+                div.addEventListener('click', () => {
+                    searchInput.value = name;
+                    searchInput.dataset.selectedSpecies = name;
+                    searchResults.style.display = "none";
+                    applyFilters();
+                });
+                searchResults.appendChild(div);
+            });
+
+            searchResults.style.display = matches.length > 0 ? "block" : "none";
+        });
+    </script>
+</body>
+</html>
